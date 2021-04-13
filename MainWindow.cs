@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
-using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace lab_1_project
@@ -12,7 +8,8 @@ namespace lab_1_project
     public partial class MainWindow : Form
     {
         private readonly SqlConnection _connection =
-            new SqlConnection(ConfigurationManager.ConnectionStrings["dbConnection"].ConnectionString);
+            new SqlConnection(
+                "Data Source=MSIGS75-WINDOWS\\SQLEXPRESS;Initial Catalog=BotanicalGarden;Integrated Security=True;");
 
         private readonly SqlDataAdapter _greenhousesAdapter = new SqlDataAdapter();
         private readonly DataSet _greenhousesDataSet = new DataSet();
@@ -27,35 +24,30 @@ namespace lab_1_project
 
         private void MainWindow_Load(object sender, EventArgs e)
         {
+            sectorIdTextBox.ReadOnly = true;
+            greenhouseIdTextBox.ReadOnly = true;
         }
 
-        private void parentTableDataGridView_CellClick(object sender, DataGridViewCellEventArgs e)
+        private void sectorsDataGridView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             try
             {
                 ClearFields();
 
-                if (parentTableDataGridView.Rows[e.RowIndex].Cells[e.ColumnIndex].Value == null) return;
-                if (parentTableDataGridView.CurrentRow != null) parentTableDataGridView.CurrentRow.Selected = true;
+                if (sectorsDataGridView.Rows[e.RowIndex].Cells[e.ColumnIndex].Value == null) return;
+                if (sectorsDataGridView.CurrentRow != null) sectorsDataGridView.CurrentRow.Selected = true;
 
-                var cellValue = parentTableDataGridView.Rows[e.RowIndex]
-                    .Cells[ConfigurationManager.AppSettings["ParentPrimaryKey"]].FormattedValue;
-                if (cellValue != null)
-                {
-                    var parentPrimaryKey = cellValue.ToString();
+                var sectorId = sectorsDataGridView.Rows[e.RowIndex].Cells["sector_id"].FormattedValue.ToString();
 
-                    _greenhousesAdapter.SelectCommand =
-                        new SqlCommand(ConfigurationManager.AppSettings["ChildSelect"], _connection);
-                    _greenhousesAdapter.SelectCommand.Parameters.AddWithValue(
-                        "@" + ConfigurationManager.AppSettings["ParentPrimaryKey"], parentPrimaryKey);
+                _greenhousesAdapter.SelectCommand =
+                    new SqlCommand("select * from Greenhouses where sector_id = @sector_id", _connection);
+                _greenhousesAdapter.SelectCommand.Parameters.AddWithValue("@sector_id", sectorId);
 
-                    ((TextBox) panel.Controls[ConfigurationManager.AppSettings["ParentPrimaryKey"]]).Text =
-                        parentPrimaryKey;
-                }
+                sectorIdTextBox.Text = sectorId;
 
                 _greenhousesDataSet.Clear();
                 _greenhousesAdapter.Fill(_greenhousesDataSet);
-                childTableDataGridView.DataSource = _greenhousesDataSet.Tables[0];
+                greenhousesDataGridView.DataSource = _greenhousesDataSet.Tables[0];
             }
             catch (Exception ex)
             {
@@ -64,30 +56,23 @@ namespace lab_1_project
             }
         }
 
-        private void childTableDataGridView_CellClick(object sender, DataGridViewCellEventArgs e)
+        private void greenhousesDataGridView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             try
             {
-                if (childTableDataGridView.Rows[e.RowIndex].Cells[e.ColumnIndex].Value == null) return;
-                if (childTableDataGridView.CurrentRow != null) childTableDataGridView.CurrentRow.Selected = true;
+                if (greenhousesDataGridView.Rows[e.RowIndex].Cells[e.ColumnIndex].Value == null) return;
+                if (greenhousesDataGridView.CurrentRow != null) greenhousesDataGridView.CurrentRow.Selected = true;
 
-                var childPrimaryKey = ConfigurationManager.AppSettings["ChildPrimaryKey"];
-                var formattedValue = childTableDataGridView.Rows[e.RowIndex]
-                    .Cells[childPrimaryKey]
-                    .FormattedValue;
-                if (formattedValue != null)
-                    ((TextBox) panel.Controls[childPrimaryKey]).Text = formattedValue.ToString();
-
-                var childRestColumnNames =
-                    new List<string>(ConfigurationManager.AppSettings["ChildRestColumnNames"].Split(','));
-                foreach (var columnName in childRestColumnNames)
-                {
-                    formattedValue = childTableDataGridView.Rows[e.RowIndex]
-                        .Cells[columnName]
-                        .FormattedValue;
-                    if (formattedValue != null)
-                        ((TextBox) panel.Controls[columnName]).Text = formattedValue.ToString();
-                }
+                greenhouseIdTextBox.Text = greenhousesDataGridView.Rows[e.RowIndex].Cells["greenhouse_id"]
+                    .FormattedValue.ToString();
+                nicknameTextBox.Text =
+                    greenhousesDataGridView.Rows[e.RowIndex].Cells["nickname"].FormattedValue.ToString();
+                freeSpacesTextBox.Text = greenhousesDataGridView.Rows[e.RowIndex].Cells["free_spaces"].FormattedValue
+                    .ToString();
+                isFullTextBox.Text =
+                    greenhousesDataGridView.Rows[e.RowIndex].Cells["is_full"].FormattedValue.ToString();
+                sectorIdTextBox.Text =
+                    greenhousesDataGridView.Rows[e.RowIndex].Cells["sector_id"].FormattedValue.ToString();
             }
             catch (Exception ex)
             {
@@ -100,20 +85,24 @@ namespace lab_1_project
         {
             try
             {
-                var childRestColumnNames =
-                    new List<string>(ConfigurationManager.AppSettings["ChildRestColumnNames"].Split(','));
-                if (childRestColumnNames.Any(columnName => ((TextBox) panel.Controls[columnName]).Text == ""))
+                if (nicknameTextBox.Text == "" || freeSpacesTextBox.Text == "" || isFullTextBox.Text == "" ||
+                    sectorIdTextBox.Text == "")
                     throw new Exception("empty or incorrect data given");
 
                 _greenhousesAdapter.InsertCommand =
-                    new SqlCommand(ConfigurationManager.AppSettings["ChildInsert"], _connection);
-                foreach (var columnName in childRestColumnNames)
-                    _greenhousesAdapter.InsertCommand.Parameters.AddWithValue("@" + columnName,
-                        ((TextBox) panel.Controls[columnName]).Text);
+                    new SqlCommand(
+                        "insert into Greenhouses(nickname, free_spaces, is_full, sector_id) values(@nickname, @free_spaces, @is_full, @sector_id)",
+                        _connection);
+                _greenhousesAdapter.InsertCommand.Parameters.AddWithValue("@nickname", nicknameTextBox.Text);
+                _greenhousesAdapter.InsertCommand.Parameters.AddWithValue("@free_spaces", freeSpacesTextBox.Text);
+                _greenhousesAdapter.InsertCommand.Parameters.AddWithValue("@is_full", isFullTextBox.Text);
+                _greenhousesAdapter.InsertCommand.Parameters.AddWithValue("@sector_id", sectorIdTextBox.Text);
 
                 _connection.Open();
                 _greenhousesAdapter.InsertCommand.ExecuteNonQuery();
                 _connection.Close();
+
+                MessageBox.Show("greenhouse added");
 
                 _greenhousesDataSet.Clear();
                 _greenhousesAdapter.Fill(_greenhousesDataSet);
@@ -131,21 +120,15 @@ namespace lab_1_project
         {
             try
             {
-                var selected = childTableDataGridView.SelectedRows;
+                var selected = greenhousesDataGridView.SelectedRows;
                 if (selected.Count == 0)
                     throw new Exception("no selected greenhouse");
 
-                var formattedValue = selected[0].Cells[ConfigurationManager.AppSettings["ChildPrimaryKey"]]
-                    .FormattedValue;
-                if (formattedValue != null)
-                {
-                    var childPrimaryKey = formattedValue.ToString();
+                var greenhouseId = selected[0].Cells["greenhouse_id"].FormattedValue.ToString();
 
-                    _greenhousesAdapter.DeleteCommand =
-                        new SqlCommand(ConfigurationManager.AppSettings["ChildDelete"], _connection);
-                    _greenhousesAdapter.DeleteCommand.Parameters.AddWithValue(
-                        "@" + ConfigurationManager.AppSettings["ChildPrimaryKey"], childPrimaryKey);
-                }
+                _greenhousesAdapter.DeleteCommand =
+                    new SqlCommand("delete from Greenhouses where greenhouse_id = @greenhouse_id", _connection);
+                _greenhousesAdapter.DeleteCommand.Parameters.AddWithValue("@greenhouse_id", greenhouseId);
 
                 _connection.Open();
                 _greenhousesAdapter.DeleteCommand.ExecuteNonQuery();
@@ -169,20 +152,26 @@ namespace lab_1_project
         {
             try
             {
-                var childAllColumnNames =
-                    new List<string>(ConfigurationManager.AppSettings["ChildAllColumnNames"].Split(','));
-                if (childAllColumnNames.Any(columnName => ((TextBox) panel.Controls[columnName]).Text == ""))
+                if (greenhouseIdTextBox.Text == "" || nicknameTextBox.Text == "" || freeSpacesTextBox.Text == "" ||
+                    isFullTextBox.Text == "" ||
+                    sectorIdTextBox.Text == "")
                     throw new Exception("empty or incorrect data given");
 
                 _greenhousesAdapter.UpdateCommand =
-                    new SqlCommand(ConfigurationManager.AppSettings["ChildUpdate"], _connection);
-                foreach (var columnName in childAllColumnNames)
-                    _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@" + columnName,
-                        ((TextBox) panel.Controls[columnName]).Text);
+                    new SqlCommand(
+                        "update Greenhouses set nickname = @nickname, free_spaces = @free_spaces, is_full = @is_full, sector_id = @sector_id where greenhouse_id = @greenhouse_id",
+                        _connection);
+                _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@greenhouse_id", greenhouseIdTextBox.Text);
+                _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@nickname", nicknameTextBox.Text);
+                _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@free_spaces", freeSpacesTextBox.Text);
+                _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@is_full", isFullTextBox.Text);
+                _greenhousesAdapter.UpdateCommand.Parameters.AddWithValue("@sector_id", sectorIdTextBox.Text);
 
                 _connection.Open();
                 _greenhousesAdapter.UpdateCommand.ExecuteNonQuery();
                 _connection.Close();
+
+                MessageBox.Show("greenhouse modified");
 
                 _greenhousesDataSet.Clear();
                 _greenhousesAdapter.Fill(_greenhousesDataSet);
@@ -201,36 +190,10 @@ namespace lab_1_project
             try
             {
                 _greenhousesDataSet.Clear();
-                _sectorsAdapter.SelectCommand =
-                    new SqlCommand(ConfigurationManager.AppSettings["ParentSelect"], _connection);
+                _sectorsAdapter.SelectCommand = new SqlCommand("select * from Sectors", _connection);
                 _sectorsDataSet.Clear();
                 _sectorsAdapter.Fill(_sectorsDataSet);
-                parentTableDataGridView.DataSource = _sectorsDataSet.Tables[0];
-                parentTableLabel.Text = ConfigurationManager.AppSettings["ParentTableName"];
-                childTableLabel.Text = ConfigurationManager.AppSettings["ChildTableName"];
-
-                // fields generation
-                const int labelX = 0;
-                const int fieldX = 100;
-                var y = 0;
-                var childAllColumnNames =
-                    new List<string>(ConfigurationManager.AppSettings["ChildAllColumnNames"].Split(','));
-                panel.Controls.Clear();
-                foreach (var columnName in childAllColumnNames)
-                {
-                    var label = new Label
-                        {Text = columnName, Location = new Point(labelX, y), Visible = true, Parent = panel};
-                    var field = new TextBox
-                        {Name = columnName, Location = new Point(fieldX, y), Visible = true, Parent = panel};
-                    panel.Controls.Add(label);
-                    panel.Controls.Add(field);
-                    y += 30;
-                }
-
-                panel.Show();
-
-                ((TextBox) panel.Controls[ConfigurationManager.AppSettings["ParentPrimaryKey"]]).ReadOnly = true;
-                ((TextBox) panel.Controls[ConfigurationManager.AppSettings["ChildPrimaryKey"]]).ReadOnly = true;
+                sectorsDataGridView.DataSource = _sectorsDataSet.Tables[0];
             }
             catch (Exception ex)
             {
@@ -241,9 +204,11 @@ namespace lab_1_project
 
         private void ClearFields()
         {
-            var childAllColumnNames =
-                new List<string>(ConfigurationManager.AppSettings["ChildAllColumnNames"].Split(','));
-            foreach (var columnName in childAllColumnNames) ((TextBox) panel.Controls[columnName]).Text = "";
+            greenhouseIdTextBox.Text = "";
+            nicknameTextBox.Text = "";
+            freeSpacesTextBox.Text = "";
+            isFullTextBox.Text = "";
+            sectorIdTextBox.Text = "";
         }
     }
 }
